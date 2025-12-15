@@ -3,18 +3,19 @@ import threading
 import json
 import time
 import random
-import string
 
 TCP_PORT = 50000
 DISCOVERY_PORT = 50001
 
+
 def room_code():
     return ''.join(random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(4))
+
 
 class RoomServer:
     def __init__(self):
         self.code = room_code()
-        self.clients = {}  # conn -> {"id": str, "x": int, "y": int}
+        self.clients = {}
         self.running = True
 
     def start(self):
@@ -23,7 +24,6 @@ class RoomServer:
         threading.Thread(target=self.tcp_loop, daemon=True).start()
         self.game_loop()
 
-    # UDP discovery
     def discovery_loop(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -43,7 +43,6 @@ class RoomServer:
             except:
                 pass
 
-    # TCP accept
     def tcp_loop(self):
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -54,11 +53,9 @@ class RoomServer:
             conn, addr = srv.accept()
             pid = f"P{len(self.clients)+1}"
             self.clients[conn] = {"id": pid, "x": 500, "y": 350}
-
-            conn.sendall(json.dumps({"type": "welcome", "id": pid}).encode()+b"\n")
+            conn.sendall(json.dumps({"type": "welcome", "id": pid}).encode() + b"\n")
             threading.Thread(target=self.client_receiver, args=(conn,), daemon=True).start()
 
-    # TCP receive loop
     def client_receiver(self, conn):
         buf = b""
         while self.running:
@@ -70,19 +67,15 @@ class RoomServer:
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
                     msg = json.loads(line.decode())
-
-                    # update only x,y
                     player = self.clients[conn]
                     player["x"] += msg.get("dx", 0)
                     player["y"] += msg.get("dy", 0)
-
             except:
                 break
 
         del self.clients[conn]
         conn.close()
 
-    # Broadcast loop
     def game_loop(self):
         while self.running:
             state = {
@@ -98,7 +91,13 @@ class RoomServer:
                     del self.clients[conn]
                     conn.close()
 
-            time.sleep(1/20)
+            time.sleep(1 / 20)
+
+
+# 🔹 NEW: server entry function
+def run_server():
+    RoomServer().start()
+
 
 if __name__ == "__main__":
-    RoomServer().start()
+    run_server()

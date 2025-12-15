@@ -3,11 +3,17 @@ import threading
 import json
 import pygame
 import time
+import sys
+import os
 
 DISCOVERY_PORT = 50001
 TCP_PORT = 50000
 
-# Discover rooms
+# 🔹 Import server runner
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "server")))
+from server import run_server
+
+
 def discover_rooms(timeout=1.5):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -20,12 +26,12 @@ def discover_rooms(timeout=1.5):
         sock.sendto(b"DISCOVER_ROOM", ("<broadcast>", DISCOVERY_PORT))
         try:
             data, addr = sock.recvfrom(1024)
-            info = json.loads(data.decode())
-            found.append(info)
+            found.append(json.loads(data.decode()))
         except:
             pass
 
     return found
+
 
 class Client:
     def __init__(self):
@@ -43,8 +49,6 @@ class Client:
         while self.running:
             try:
                 data = self.sock.recv(4096)
-
-            # 🔹 Server disconnected
                 if not data:
                     print("Disconnected from server")
                     self.running = False
@@ -69,27 +73,36 @@ class Client:
                     pass
                 break
 
-
     def send_input(self, dx, dy):
-        msg = json.dumps({"dx": dx, "dy": dy}) + "\n"
         try:
+            msg = json.dumps({"dx": dx, "dy": dy}) + "\n"
             self.sock.sendall(msg.encode())
         except:
             pass
 
-# ---------------------- PYGAME LOOP ----------------------
+
+# ---------------------- GAME START ----------------------
 pygame.init()
 screen = pygame.display.set_mode((1000, 700))
 clock = pygame.time.Clock()
 
 client = Client()
 
-rooms = discover_rooms()
-if rooms:
-    print("Found rooms:", rooms)
-    client.connect(rooms[0]["host"])   # auto-join first found
+# 🔹 HOST MODE (set to False to join instead)
+HOST_GAME = True
+
+if HOST_GAME:
+    print("Hosting game...")
+    threading.Thread(target=run_server, daemon=True).start()
+    time.sleep(1)  # allow server to start
+    client.connect("127.0.0.1")
 else:
-    print("No rooms found.")
+    rooms = discover_rooms()
+    if rooms:
+        print("Found rooms:", rooms)
+        client.connect(rooms[0]["host"])
+    else:
+        print("No rooms found.")
 
 running = True
 while running and client.running:
@@ -106,10 +119,9 @@ while running and client.running:
 
     client.send_input(dx, dy)
 
-    # draw
     screen.fill((30, 30, 30))
     for p in client.players:
-        pygame.draw.rect(screen, (0,255,0), (p["x"], p["y"], 40, 40))
+        pygame.draw.rect(screen, (0, 255, 0), (p["x"], p["y"], 40, 40))
 
     pygame.display.flip()
     clock.tick(60)
