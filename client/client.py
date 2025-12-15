@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "s
 from server import run_server
 
 
-# ---------------- ROAD CONFIG ----------------
+# ---------------- SCREEN & ROAD CONFIG ----------------
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
 
@@ -23,6 +23,12 @@ ROAD_X = (SCREEN_WIDTH - ROAD_WIDTH) // 2
 
 LANE_COUNT = 3
 LANE_WIDTH = ROAD_WIDTH // LANE_COUNT
+
+
+# ---------------- SIDEBAR CONFIG ----------------
+SIDEBAR_WIDTH = 200
+SIDEBAR_BG = (25, 25, 25)
+TEXT_COLOR = (255, 255, 255)
 
 
 # ---------------- LOAD ASSETS ----------------
@@ -39,14 +45,14 @@ CAR_IMAGES = [pygame.transform.scale(img, (40, 40)) for img in CAR_IMAGES]
 
 
 def draw_road(surface):
-    # Draw road
+    # Road
     pygame.draw.rect(
         surface,
         (50, 50, 50),
         (ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT)
     )
 
-    # Draw lane dividers
+    # Lane dividers
     for i in range(1, LANE_COUNT):
         x = ROAD_X + i * LANE_WIDTH
         for y in range(0, SCREEN_HEIGHT, 40):
@@ -57,6 +63,25 @@ def draw_road(surface):
                 (x, y + 20),
                 4
             )
+
+
+def draw_sidebar(surface, players, font):
+    x = SCREEN_WIDTH - SIDEBAR_WIDTH
+
+    pygame.draw.rect(
+        surface,
+        SIDEBAR_BG,
+        (x, 0, SIDEBAR_WIDTH, SCREEN_HEIGHT)
+    )
+
+    title = font.render("Players", True, TEXT_COLOR)
+    surface.blit(title, (x + 20, 20))
+
+    y_offset = 60
+    for p in players:
+        text = font.render(p["id"], True, TEXT_COLOR)
+        surface.blit(text, (x + 20, y_offset))
+        y_offset += 30
 
 
 def discover_rooms(timeout=1.5):
@@ -142,7 +167,10 @@ class Client:
 # ---------------- GAME START ----------------
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Multiplayer Car Game")
 clock = pygame.time.Clock()
+
+font = pygame.font.SysFont("arial", 22)
 
 client = Client()
 
@@ -186,6 +214,7 @@ while running and client.running:
 
     screen.fill((0, 120, 0))
     draw_road(screen)
+    draw_sidebar(screen, client.players, font)
 
     lane_centers = [
         ROAD_X + LANE_WIDTH // 2,
@@ -208,3 +237,4 @@ while running and client.running:
 
 pygame.quit()
 client.running = False
+
