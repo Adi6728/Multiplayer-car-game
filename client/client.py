@@ -43,8 +43,14 @@ class Client:
         while self.running:
             try:
                 data = self.sock.recv(4096)
+
+            # 🔹 Server disconnected
                 if not data:
+                    print("Disconnected from server")
+                    self.running = False
+                    self.sock.close()
                     break
+
                 buf += data
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
@@ -53,8 +59,16 @@ class Client:
                         self.id = msg["id"]
                     elif msg["type"] == "state":
                         self.players = msg["players"]
-            except:
+
+            except (ConnectionResetError, ConnectionAbortedError, OSError):
+                print("Disconnected from server")
+                self.running = False
+                try:
+                    self.sock.close()
+                except:
+                    pass
                 break
+
 
     def send_input(self, dx, dy):
         msg = json.dumps({"dx": dx, "dy": dy}) + "\n"
@@ -78,7 +92,7 @@ else:
     print("No rooms found.")
 
 running = True
-while running:
+while running and client.running:
     dx = dy = 0
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
